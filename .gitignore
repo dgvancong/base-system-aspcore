@@ -1,0 +1,25 @@
+# Visual Studio
+.vs/
+.vscode/
+
+# Build output
+bin/
+obj/
+
+# User files
+*.user
+*.suo
+*.cache
+
+# Logs
+*.log
+
+# Publish
+publish/
+
+# ASP.NET
+wwwroot/lib/
+
+# OS
+.DS_Store
+Thumbs.db
