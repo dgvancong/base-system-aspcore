@@ -7,11 +7,6 @@ public class ProductDto
     public string ProductName { get; set; } = string.Empty;
     public string SupplierName { get; set; } = string.Empty;
     public string CategoryName { get; set; } = string.Empty;
-    public string? Color { get; set; }
-    public string? Size { get; set; }
-    public decimal PurchasePrice { get; set; }
-    public decimal SellingPrice { get; set; }
-    public int QuantityInStock { get; set; }
     public string? Description { get; set; }
     public string? BrandName { get; set; }
     public string? Material { get; set; }
@@ -20,8 +15,14 @@ public class ProductDto
     public DateTime CreatedDate { get; set; }
     public DateTime UpdatedDate { get; set; }
 
-    // Derived properties
-    public bool IsAvailable => Status == "Đang bán" && QuantityInStock > 0;
-    public decimal Profit => SellingPrice - PurchasePrice;
-    public decimal ProfitMargin => PurchasePrice > 0 ? (Profit / PurchasePrice) * 100 : 0;
+    // Tổng hợp từ variants
+    public int TotalQuantityInStock => Variants?.Sum(v => v.QuantityInStock) ?? 0;
+    public decimal MinSellingPrice => Variants != null && Variants.Any()
+        ? Variants.Min(v => v.SellingPrice)
+        : 0;
+
+    public decimal MaxSellingPrice => Variants != null && Variants.Any()
+        ? Variants.Max(v => v.SellingPrice)
+        : 0;
+    public List<ProductVariantDto> Variants { get; set; } = new();
 }

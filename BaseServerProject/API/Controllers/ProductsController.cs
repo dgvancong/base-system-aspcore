@@ -65,15 +65,11 @@ public class ProductsController : ControllerBase
             ProductName = request.ProductName,
             SupplierName = request.SupplierName,
             CategoryName = request.CategoryName,
-            Color = request.Color,
-            Size = request.Size,
-            PurchasePrice = request.PurchasePrice,
-            SellingPrice = request.SellingPrice,
-            QuantityInStock = request.QuantityInStock,
             Description = request.Description,
             BrandName = request.BrandName,
             Material = request.Material,
-            Gender = request.Gender
+            Gender = request.Gender,
+            Variants = request.Variants
         };
         var result = await _mediator.Send(command);
         return StatusCode(StatusCodes.Status201Created, new
@@ -82,6 +78,33 @@ public class ProductsController : ControllerBase
             message = "Product created successfully",
             data = result
         });
+    }
+
+    [HttpPut("{id}")]
+    [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ProductDto>> UpdateProduct(int id, [FromBody] UpdateProductRequestDto request)
+    {
+        if (id != request.ProductID)
+            return BadRequest("ID không khớp");
+
+        var command = new UpdateProductCommand
+        {
+            ProductID = request.ProductID,
+            ProductName = request.ProductName,
+            SupplierName = request.SupplierName,
+            CategoryName = request.CategoryName,
+            Description = request.Description,
+            BrandName = request.BrandName,
+            Material = request.Material,
+            Gender = request.Gender,
+            Status = request.Status,
+            Variants = request.Variants
+        };
+
+        var result = await _mediator.Send(command);
+        return Ok(new { success = true, data = result });
     }
 
     [HttpDelete("{id}")]

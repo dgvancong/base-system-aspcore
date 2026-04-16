@@ -1,24 +1,30 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
-using BaseServerProject.Application.Common.Interfaces;
 using BaseServerProject.Application.Common.Base;
 using BaseServerProject.Application.Features.Products.DTOs;
 using BaseServerProject.Application.Features.Products.Queries;
+using BaseServerProject.Infrastructure.Persistence;
 
 namespace BaseServerProject.Application.Features.Products.Handlers;
 
 public class GetProductListQueryHandler : IRequestHandler<GetProductListQuery, PagedResult<ProductDto>>
 {
-    private readonly IProductRepository _productRepository;
+    private readonly ApplicationDbContext _context;
 
-    public GetProductListQueryHandler(IProductRepository productRepository)
+    public GetProductListQueryHandler(ApplicationDbContext context)
     {
-        _productRepository = productRepository;
+        _context = context;
     }
 
     public async Task<PagedResult<ProductDto>> Handle(GetProductListQuery request, CancellationToken cancellationToken)
     {
-        var query = _productRepository.GetQueryable();
+        var query = _context.Products
+            .Include(p => p.Variants)
+                .ThenInclude(v => v.Color)
+            .Include(p => p.Variants)
+                .ThenInclude(v => v.Size)
+            .AsSplitQuery()
+            .AsQueryable();
 
         // Filters
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
@@ -38,15 +44,16 @@ public class GetProductListQueryHandler : IRequestHandler<GetProductListQuery, P
         {
             query = query.Where(p => p.BrandName == request.BrandName);
         }
-        
+
+        // Filter theo màu sắc
         if (!string.IsNullOrWhiteSpace(request.Colors))
         {
             var colorList = request.Colors.Split(',', StringSplitOptions.RemoveEmptyEntries)
                                           .Select(c => c.Trim())
                                           .ToList();
 
-            query = query.Where(p => p.Color != null &&
-                colorList.Any(c => p.Color.Contains(c)));
+            query = query.Where(p => p.Variants.Any(v =>
+                v.Color != null && colorList.Contains(v.Color.ColorName)));
         }
 
         if (!string.IsNullOrWhiteSpace(request.Status))
@@ -54,14 +61,15 @@ public class GetProductListQueryHandler : IRequestHandler<GetProductListQuery, P
             query = query.Where(p => p.Status == request.Status);
         }
 
+        // Filter theo giá
         if (request.MinPrice.HasValue)
         {
-            query = query.Where(p => p.SellingPrice >= request.MinPrice.Value);
+            query = query.Where(p => p.Variants.Any(v => v.SellingPrice >= request.MinPrice.Value));
         }
 
         if (request.MaxPrice.HasValue)
         {
-            query = query.Where(p => p.SellingPrice <= request.MaxPrice.Value);
+            query = query.Where(p => p.Variants.Any(v => v.SellingPrice <= request.MaxPrice.Value));
         }
 
         // Sorting
@@ -71,11 +79,11 @@ public class GetProductListQueryHandler : IRequestHandler<GetProductListQuery, P
                 ? query.OrderByDescending(p => p.ProductName)
                 : query.OrderBy(p => p.ProductName),
             "price" => request.IsDescending
-                ? query.OrderByDescending(p => p.SellingPrice)
-                : query.OrderBy(p => p.SellingPrice),
+                ? query.OrderByDescending(p => p.Variants.Min(v => v.SellingPrice))
+                : query.OrderBy(p => p.Variants.Min(v => v.SellingPrice)),
             "stock" => request.IsDescending
-                ? query.OrderByDescending(p => p.QuantityInStock)
-                : query.OrderBy(p => p.QuantityInStock),
+                ? query.OrderByDescending(p => p.Variants.Sum(v => v.QuantityInStock))
+                : query.OrderBy(p => p.Variants.Sum(v => v.QuantityInStock)),
             "code" => request.IsDescending
                 ? query.OrderByDescending(p => p.ProductCode)
                 : query.OrderBy(p => p.ProductCode),
@@ -89,7 +97,7 @@ public class GetProductListQueryHandler : IRequestHandler<GetProductListQuery, P
             .Take(request.PageSize)
             .ToListAsync(cancellationToken);
 
-        // Map thủ công
+        // Map sang ProductDto
         var itemDtos = items.Select(p => new ProductDto
         {
             ProductID = p.ProductID,
@@ -97,18 +105,27 @@ public class GetProductListQueryHandler : IRequestHandler<GetProductListQuery, P
             ProductName = p.ProductName,
             SupplierName = p.SupplierName,
             CategoryName = p.CategoryName,
-            Color = p.Color,
-            Size = p.Size,
-            PurchasePrice = p.PurchasePrice,
-            SellingPrice = p.SellingPrice,
-            QuantityInStock = p.QuantityInStock,
             Description = p.Description,
             BrandName = p.BrandName,
             Material = p.Material,
             Gender = p.Gender,
             Status = p.Status,
             CreatedDate = p.CreatedDate,
-            UpdatedDate = p.UpdatedDate
+            UpdatedDate = p.UpdatedDate,
+            Variants = p.Variants.Select(v => new ProductVariantDto
+            {
+                VariantID = v.VariantID,
+                ColorID = v.ColorID,
+                ColorName = v.Color?.ColorName,
+                ColorCode = v.Color?.ColorCode,
+                SizeID = v.SizeID,
+                SizeName = v.Size?.SizeName,
+                SKU = v.SKU,
+                PurchasePrice = v.PurchasePrice,
+                SellingPrice = v.SellingPrice,
+                QuantityInStock = v.QuantityInStock,
+                Status = v.Status
+            }).ToList()
         }).ToList();
 
         return new PagedResult<ProductDto>

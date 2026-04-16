@@ -8,7 +8,6 @@ public class ApplicationDbContext : DbContext
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options)
     {
-        // Tự động log tên database đang kết nối
         var databaseName = Database.GetDbConnection().Database;
         Console.WriteLine($"Connected to database: {databaseName}");
     }
@@ -16,14 +15,90 @@ public class ApplicationDbContext : DbContext
     public DbSet<User> Users { get; set; }
     public DbSet<RefreshToken> RefreshTokens { get; set; }
     public DbSet<Product> Products { get; set; }
-    public DbSet<SalesOrder> SalesOrders { get; set; }          
+    public DbSet<ProductVariant> ProductVariants { get; set; }
+    public DbSet<Color> Colors { get; set; }
+    public DbSet<Size> Sizes { get; set; }
+    public DbSet<SalesOrder> SalesOrders { get; set; }
     public DbSet<SalesOrderDetail> SalesOrderDetails { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // User Configuration
+        // ========== CẤU HÌNH CHO PRODUCT ==========
+        modelBuilder.Entity<Product>(entity =>
+        {
+            entity.HasKey(e => e.ProductID);
+            entity.Property(e => e.ProductID).UseIdentityColumn();
+
+            entity.Property(e => e.ProductCode)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            entity.Property(e => e.ProductName)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            // Quan hệ với ProductVariant - sử dụng đúng tên property
+            entity.HasMany(p => p.Variants)
+                  .WithOne(v => v.Product)
+                  .HasForeignKey(v => v.ProductID)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ========== CẤU HÌNH CHO PRODUCT VARIANT ==========
+        modelBuilder.Entity<ProductVariant>(entity =>
+        {
+           
+
+            entity.Property(e => e.SKU)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(e => e.PurchasePrice)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(e => e.SellingPrice)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(e => e.QuantityInStock)
+                .IsRequired()
+                .HasDefaultValue(0);
+
+            entity.Property(e => e.Status)  
+                .HasMaxLength(20)
+                .HasDefaultValue("Đang bán");
+
+            entity.HasOne(v => v.Product)
+                  .WithMany(p => p.Variants)
+                  .HasForeignKey(v => v.ProductID)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(v => v.Color)
+                  .WithMany()
+                  .HasForeignKey(v => v.ColorID)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(v => v.Size)
+                  .WithMany()
+                  .HasForeignKey(v => v.SizeID)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ProductVariant>()
+            .HasOne(v => v.Color)
+            .WithMany(c => c.ProductVariants)
+            .HasForeignKey(v => v.ColorID)
+            .OnDelete(DeleteBehavior.Restrict);
+        
+        modelBuilder.Entity<ProductVariant>()
+            .HasOne(v => v.Size)
+            .WithMany(s => s.ProductVariants) 
+            .HasForeignKey(v => v.SizeID)
+            .OnDelete(DeleteBehavior.Restrict);
+
+
+        // ========== CẤU HÌNH CHO USER ==========
         modelBuilder.Entity<User>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -51,7 +126,7 @@ public class ApplicationDbContext : DbContext
                 .HasConversion<int>();
         });
 
-        // RefreshToken Configuration
+        // ========== CẤU HÌNH CHO REFRESH TOKEN ==========
         modelBuilder.Entity<RefreshToken>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -63,7 +138,7 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // 👇 THÊM CẤU HÌNH CHO SalesOrder
+        // ========== CẤU HÌNH CHO SALES ORDER ==========
         modelBuilder.Entity<SalesOrder>(entity =>
         {
             entity.HasKey(e => e.OrderID);
@@ -94,14 +169,13 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Notes)
                 .HasMaxLength(500);
 
-            // Quan hệ 1-n với SalesOrderDetails
             entity.HasMany(e => e.OrderDetails)
                   .WithOne(e => e.Order)
                   .HasForeignKey(e => e.OrderID)
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // 👇 THÊM CẤU HÌNH CHO SalesOrderDetail
+        // ========== CẤU HÌNH CHO SALES ORDER DETAIL ==========
         modelBuilder.Entity<SalesOrderDetail>(entity =>
         {
             entity.HasKey(e => e.OrderDetailID);
@@ -129,13 +203,11 @@ public class ApplicationDbContext : DbContext
                 .HasColumnType("decimal(18,2)")
                 .HasDefaultValue(0);
 
-            // Quan hệ với SalesOrder
             entity.HasOne(e => e.Order)
                   .WithMany(e => e.OrderDetails)
                   .HasForeignKey(e => e.OrderID)
                   .OnDelete(DeleteBehavior.Cascade);
 
-            // Quan hệ với Product
             entity.HasOne(e => e.Product)
                   .WithMany()
                   .HasForeignKey(e => e.ProductID)

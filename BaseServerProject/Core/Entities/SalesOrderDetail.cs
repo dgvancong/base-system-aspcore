@@ -3,24 +3,28 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace BaseServerProject.Core.Entities;
 
-[Table("SalesOrderDetails")]
 public class SalesOrderDetail
 {
     [Key]
-    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public int OrderDetailID { get; set; }
 
     public int OrderID { get; set; }
 
+    public int VariantID { get; set; }
+
     public int ProductID { get; set; }
 
-    [Required]
     [MaxLength(50)]
-    public string? ProductCode { get; set; }
+    public string ProductCode { get; set; }
 
-    [Required]
     [MaxLength(200)]
-    public string? ProductName { get; set; }
+    public string ProductName { get; set; }
+
+    [MaxLength(50)]
+    public string? ColorName { get; set; }
+
+    [MaxLength(20)]
+    public string? SizeName { get; set; }
 
     public int Quantity { get; set; }
 
@@ -28,15 +32,18 @@ public class SalesOrderDetail
     public decimal UnitPrice { get; set; }
 
     [Column(TypeName = "decimal(18,2)")]
-    public decimal DiscountAmount { get; set; } = 0;
+    public decimal DiscountAmount { get; set; }
 
     [Column(TypeName = "decimal(18,2)")]
-    public decimal TotalAmount { get; set; } = 0;
+    public decimal TotalAmount { get; set; }
 
     // Navigation properties
-    [ForeignKey(nameof(OrderID))]
-    public virtual SalesOrder? Order { get; set; }
+    [ForeignKey("OrderID")]
+    public virtual SalesOrder Order { get; set; }
 
-    [ForeignKey(nameof(ProductID))]
-    public virtual Product? Product { get; set; }
+    [ForeignKey("VariantID")]
+    public virtual ProductVariant Variant { get; set; }
+
+    [ForeignKey("ProductID")]
+    public virtual Product Product { get; set; }
 }

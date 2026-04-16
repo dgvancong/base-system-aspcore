@@ -16,8 +16,13 @@ public class OrderDto
 public class OrderDetailDto
 {
     public int ProductID { get; set; }
+    public int VariantID { get; set; }  
     public string? ProductCode { get; set; }
     public string? ProductName { get; set; }
+    public int ColorID { get; set; }    
+    public string? ColorName { get; set; }
+    public int SizeID { get; set; }     
+    public string? SizeName { get; set; }
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal DiscountAmount { get; set; }
