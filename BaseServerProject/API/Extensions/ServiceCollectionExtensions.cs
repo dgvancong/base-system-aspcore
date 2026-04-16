@@ -7,6 +7,7 @@ using BaseServerProject.Infrastructure.Persistence;
 using BaseServerProject.Infrastructure.Persistence.Repositories;
 using BaseServerProject.Infrastructure.Services;
 using BaseServerProject.API.Middleware;
+using AutoMapper;
 
 namespace BaseServerProject.API.Extensions;
 
@@ -34,6 +35,9 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
+        // AutoMapper - Register before MediatR
+        services.AddAutoMapper(typeof(LoginCommandValidator).Assembly);
+
         // MediatR
         services.AddMediatR(cfg =>
             cfg.RegisterServicesFromAssembly(typeof(LoginCommandValidator).Assembly));

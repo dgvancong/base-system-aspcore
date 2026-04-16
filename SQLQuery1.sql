@@ -36,3 +36,5 @@ CREATE TABLE [dbo].[RefreshTokens] (
     CONSTRAINT FK_RefreshTokens_Users FOREIGN KEY (UserId) REFERENCES [dbo].[Users](Id) ON DELETE CASCADE
 );
 GO
+
+SELECT * FROM Users 
