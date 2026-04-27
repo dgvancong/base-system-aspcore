@@ -26,4 +26,9 @@ public class DeleteProductCommandHandler : IRequestHandler<DeleteProductCommand,
 
         return true;
     }
+
+    public async Task<bool> Handles(DeleteProductCommand request, CancellationToken cancellationToken)
+    {
+        return true;
+    }
 }
