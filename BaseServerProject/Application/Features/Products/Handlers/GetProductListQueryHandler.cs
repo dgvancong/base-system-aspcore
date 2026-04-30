@@ -64,13 +64,14 @@ public class GetProductListQueryHandler : IRequestHandler<GetProductListQuery, P
         // Filter theo giá
         if (request.MinPrice.HasValue)
         {
-            query = query.Where(p => p.Variants.Any(v => v.SellingPrice >= request.MinPrice.Value));
+            query = query.Where(p => p.SellingPrice >= request.MinPrice.Value); 
         }
 
         if (request.MaxPrice.HasValue)
         {
-            query = query.Where(p => p.Variants.Any(v => v.SellingPrice <= request.MaxPrice.Value));
+            query = query.Where(p => p.SellingPrice <= request.MaxPrice.Value); 
         }
+
 
         // Sorting
         query = request.SortBy?.ToLower() switch
@@ -79,8 +80,8 @@ public class GetProductListQueryHandler : IRequestHandler<GetProductListQuery, P
                 ? query.OrderByDescending(p => p.ProductName)
                 : query.OrderBy(p => p.ProductName),
             "price" => request.IsDescending
-                ? query.OrderByDescending(p => p.Variants.Min(v => v.SellingPrice))
-                : query.OrderBy(p => p.Variants.Min(v => v.SellingPrice)),
+                ? query.OrderByDescending(p => p.SellingPrice)    
+                : query.OrderBy(p => p.SellingPrice),           
             "stock" => request.IsDescending
                 ? query.OrderByDescending(p => p.Variants.Sum(v => v.QuantityInStock))
                 : query.OrderBy(p => p.Variants.Sum(v => v.QuantityInStock)),
@@ -106,6 +107,8 @@ public class GetProductListQueryHandler : IRequestHandler<GetProductListQuery, P
             SupplierName = p.SupplierName,
             CategoryName = p.CategoryName,
             Description = p.Description,
+            PurchasePrice = p.PurchasePrice,
+            SellingPrice = p.SellingPrice,
             BrandName = p.BrandName,
             Material = p.Material,
             Gender = p.Gender,
@@ -120,9 +123,6 @@ public class GetProductListQueryHandler : IRequestHandler<GetProductListQuery, P
                 ColorCode = v.Color?.ColorCode,
                 SizeID = v.SizeID,
                 SizeName = v.Size?.SizeName,
-                SKU = v.SKU,
-                PurchasePrice = v.PurchasePrice,
-                SellingPrice = v.SellingPrice,
                 QuantityInStock = v.QuantityInStock,
                 Status = v.Status
             }).ToList()

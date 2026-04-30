@@ -10,21 +10,24 @@ public class Product
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public int ProductID { get; set; }
 
-    [Required]
     [MaxLength(50)]
-    public string ProductCode { get; set; } = string.Empty;
+    public string? ProductCode { get; set; }                    // 👈 Bỏ [Required]
 
     [Required]
     [MaxLength(200)]
-    public string ProductName { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;    // 👈 Bỏ nullable
 
-    [Required]
     [MaxLength(200)]
-    public string SupplierName { get; set; } = string.Empty;
+    public string? SupplierName { get; set; }
 
-    [Required]
     [MaxLength(100)]
-    public string CategoryName { get; set; } = string.Empty;
+    public string? CategoryName { get; set; }
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal PurchasePrice { get; set; } = 0;
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal SellingPrice { get; set; } = 0;
 
     public string? Description { get; set; }
 
@@ -40,11 +43,16 @@ public class Product
     [MaxLength(20)]
     public string? Status { get; set; } = "Đang bán";
 
+    public bool IsDeleted { get; set; } = false;
+    public DateTime? DeletedAt { get; set; }
+
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedDate { get; set; } = DateTime.UtcNow;
 
-    // Navigation property
     public virtual ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
+
+    // ========== BUSINESS METHODS ==========
+
     public void UpdateStock(int quantity)
     {
         foreach (var variant in Variants)
@@ -83,11 +91,12 @@ public class Product
 
     public bool IsAvailable()
     {
-        return Status == "Đang bán" && Variants.Any(v => v.QuantityInStock > 0);
+        return !IsDeleted && Status == "Đang bán" && Variants.Any(v => v.QuantityInStock > 0);
     }
 
     public bool IsVariantAvailable(int colorId, int sizeId)
     {
+        if (IsDeleted) return false;
         var variant = Variants.FirstOrDefault(v => v.ColorID == colorId && v.SizeID == sizeId);
         return variant != null && variant.IsAvailable();
     }
@@ -97,13 +106,39 @@ public class Product
         return Variants.Sum(v => v.QuantityInStock);
     }
 
-    public decimal GetMinPrice()
+    public decimal GetPrice()
     {
-        return Variants.Any() ? Variants.Min(v => v.SellingPrice) : 0;
+        return SellingPrice;
     }
 
-    public decimal GetMaxPrice()
+    public void SoftDelete()
     {
-        return Variants.Any() ? Variants.Max(v => v.SellingPrice) : 0;
+        IsDeleted = true;
+        DeletedAt = DateTime.UtcNow;
+        Status = "Ngừng bán";
+        UpdatedDate = DateTime.UtcNow;
+
+        foreach (var variant in Variants)
+        {
+            variant.Status = "Ngừng bán";
+            variant.UpdatedDate = DateTime.UtcNow;
+        }
+    }
+
+    public void Restore()
+    {
+        IsDeleted = false;
+        DeletedAt = null;
+        Status = "Đang bán";
+        UpdatedDate = DateTime.UtcNow;
+
+        foreach (var variant in Variants)
+        {
+            if (variant.QuantityInStock > 0)
+            {
+                variant.Status = "Đang bán";
+            }
+            variant.UpdatedDate = DateTime.UtcNow;
+        }
     }
 }

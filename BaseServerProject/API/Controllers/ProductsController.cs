@@ -54,6 +54,21 @@ public class ProductsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("{id}")]
+    [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ProductDto>> GetProductById(int id)
+    {
+        var query = new GetProductByIdQuery { ProductID = id };
+        var result = await _mediator.Send(query);
+
+        if (result == null)
+            return NotFound(new { success = false, message = $"Không tìm thấy sản phẩm với ID {id}" });
+
+        return Ok(new { success = true, data = result });
+    }
+
+
     [HttpPost]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -65,6 +80,8 @@ public class ProductsController : ControllerBase
             ProductName = request.ProductName,
             SupplierName = request.SupplierName,
             CategoryName = request.CategoryName,
+            PurchasePrice = request.PurchasePrice,      
+            SellingPrice = request.SellingPrice,        
             Description = request.Description,
             BrandName = request.BrandName,
             Material = request.Material,
@@ -95,6 +112,8 @@ public class ProductsController : ControllerBase
             ProductName = request.ProductName,
             SupplierName = request.SupplierName,
             CategoryName = request.CategoryName,
+            PurchasePrice = request.PurchasePrice,      
+            SellingPrice = request.SellingPrice,        
             Description = request.Description,
             BrandName = request.BrandName,
             Material = request.Material,
@@ -116,5 +135,4 @@ public class ProductsController : ControllerBase
         await _mediator.Send(command);
         return NoContent();
     }
-
 }

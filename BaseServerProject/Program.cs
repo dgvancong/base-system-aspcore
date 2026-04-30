@@ -50,6 +50,7 @@ builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssemblyContaining<CreateProductCommandHandler>();
     cfg.RegisterServicesFromAssemblyContaining<GetProductListQueryHandler>();
     cfg.RegisterServicesFromAssemblyContaining<DeleteProductCommandHandler>();
+    cfg.RegisterServicesFromAssemblyContaining<GetProductByIdQueryHandler>();
 
     cfg.RegisterServicesFromAssemblyContaining<CreateOrderCommandHandler>();
     cfg.RegisterServicesFromAssemblyContaining<GetOrderListQueryHandler>();

@@ -18,20 +18,26 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
 
     public async Task<ProductDto> Handle(CreateProductCommand request, CancellationToken cancellationToken)
     {
-        // 1. Kiểm tra mã sản phẩm đã tồn tại
-        var existingProduct = await _context.Products
-            .FirstOrDefaultAsync(p => p.ProductCode == request.ProductCode, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(request.ProductCode))
+        {
+            var existingProduct = await _context.Products
+                .FirstOrDefaultAsync(p => p.ProductCode == request.ProductCode, cancellationToken);
 
-        if (existingProduct != null)
-            throw new Exception($"Mã sản phẩm {request.ProductCode} đã tồn tại");
+            if (existingProduct != null)
+                throw new Exception($"Mã sản phẩm {request.ProductCode} đã tồn tại");
+        }
 
-        // 2. Tạo sản phẩm mới
+        if (string.IsNullOrWhiteSpace(request.ProductName))
+            throw new Exception("Tên sản phẩm là bắt buộc");
+
         var product = new Product
         {
-            ProductCode = request.ProductCode,
+            ProductCode = string.IsNullOrWhiteSpace(request.ProductCode) ? null : request.ProductCode,
             ProductName = request.ProductName,
-            SupplierName = request.SupplierName,
-            CategoryName = request.CategoryName,
+            SupplierName = string.IsNullOrWhiteSpace(request.SupplierName) ? null : request.SupplierName,
+            CategoryName = string.IsNullOrWhiteSpace(request.CategoryName) ? null : request.CategoryName,
+            PurchasePrice = request.PurchasePrice,      
+            SellingPrice = request.SellingPrice,       
             Description = request.Description,
             BrandName = request.BrandName,
             Material = request.Material,
@@ -44,42 +50,37 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
         _context.Products.Add(product);
         await _context.SaveChangesAsync(cancellationToken);
 
-        // 3. Tạo các biến thể (màu sắc + kích thước)
-        foreach (var variantDto in request.Variants)
+        if (request.Variants != null && request.Variants.Any())
         {
-            // Kiểm tra màu sắc tồn tại
-            var color = await _context.Colors.FindAsync(variantDto.ColorID);
-            if (color == null)
-                throw new Exception($"Màu sắc ID {variantDto.ColorID} không tồn tại");
-
-            // Kiểm tra kích thước tồn tại
-            var size = await _context.Sizes.FindAsync(variantDto.SizeID);
-            if (size == null)
-                throw new Exception($"Kích thước ID {variantDto.SizeID} không tồn tại");
-
-            // Tạo SKU: {ProductCode}-{ColorName}-{SizeName}
-            var sku = $"{product.ProductCode}-{color.ColorName}-{size.SizeName}".ToUpper();
-
-            var variant = new ProductVariant
+            foreach (var variantDto in request.Variants)
             {
-                ProductID = product.ProductID,
-                ColorID = variantDto.ColorID,
-                SizeID = variantDto.SizeID,
-                SKU = sku,
-                PurchasePrice = variantDto.PurchasePrice,
-                SellingPrice = variantDto.SellingPrice,
-                QuantityInStock = variantDto.QuantityInStock,
-                Status = variantDto.QuantityInStock > 0 ? "Đang bán" : "Hết hàng",
-                CreatedDate = DateTime.UtcNow,
-                UpdatedDate = DateTime.UtcNow
-            };
+                var color = await _context.Colors.FindAsync(variantDto.ColorID);
+                if (color == null)
+                    throw new Exception($"Màu sắc ID {variantDto.ColorID} không tồn tại");
 
-            _context.ProductVariants.Add(variant);
+                var size = await _context.Sizes.FindAsync(variantDto.SizeID);
+                if (size == null)
+                    throw new Exception($"Kích thước ID {variantDto.SizeID} không tồn tại");
+
+                var sku = $"{product.ProductCode ?? "SP"}-{color.ColorName}-{size.SizeName}".ToUpper();
+
+                var variant = new ProductVariant
+                {
+                    ProductID = product.ProductID,
+                    ColorID = variantDto.ColorID,
+                    SizeID = variantDto.SizeID,
+                    QuantityInStock = variantDto.QuantityInStock,  
+                    Status = variantDto.QuantityInStock > 0 ? "Đang bán" : "Hết hàng",
+                    CreatedDate = DateTime.UtcNow,
+                    UpdatedDate = DateTime.UtcNow
+                };
+
+                _context.ProductVariants.Add(variant);
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
-        await _context.SaveChangesAsync(cancellationToken);
-
-        // 4. Lấy lại sản phẩm kèm variants để trả về
         var createdProduct = await _context.Products
             .Include(p => p.Variants)
                 .ThenInclude(v => v.Color)
@@ -99,6 +100,8 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
             ProductName = product.ProductName,
             SupplierName = product.SupplierName,
             CategoryName = product.CategoryName,
+            PurchasePrice = product.PurchasePrice,   
+            SellingPrice = product.SellingPrice,     
             Description = product.Description,
             BrandName = product.BrandName,
             Material = product.Material,
@@ -114,10 +117,7 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
                 ColorCode = v.Color?.ColorCode,
                 SizeID = v.SizeID,
                 SizeName = v.Size?.SizeName,
-                SKU = v.SKU,
-                PurchasePrice = v.PurchasePrice,
-                SellingPrice = v.SellingPrice,
-                QuantityInStock = v.QuantityInStock,
+                QuantityInStock = v.QuantityInStock,  
                 Status = v.Status
             }).ToList()
         };

@@ -32,71 +32,98 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.ProductID).UseIdentityColumn();
 
             entity.Property(e => e.ProductCode)
-                .IsRequired()
                 .HasMaxLength(50);
 
             entity.Property(e => e.ProductName)
                 .IsRequired()
                 .HasMaxLength(200);
 
-            // Quan hệ với ProductVariant - sử dụng đúng tên property
+            entity.Property(e => e.SupplierName)
+                .HasMaxLength(200);
+
+            entity.Property(e => e.CategoryName)
+                .HasMaxLength(100);
+
+            entity.Property(e => e.PurchasePrice)
+                .HasColumnType("decimal(18,2)")
+                .HasDefaultValue(0);
+
+            entity.Property(e => e.SellingPrice)
+                .HasColumnType("decimal(18,2)")
+                .HasDefaultValue(0);
+
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .HasDefaultValue("Đang bán");
+
+            // 👇 THÊM SOFT DELETE CONFIGURATION
+            entity.Property(e => e.IsDeleted)
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.DeletedAt)
+                .HasColumnType("datetime");
+
+            // 👇 GLOBAL QUERY FILTER - Tự động lọc sản phẩm chưa bị xóa
+            entity.HasQueryFilter(p => !p.IsDeleted);
+
+            // Quan hệ với ProductVariant
             entity.HasMany(p => p.Variants)
                   .WithOne(v => v.Product)
                   .HasForeignKey(v => v.ProductID)
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
+        // ========== CẤU HÌNH CHO COLOR ==========
+        modelBuilder.Entity<Color>(entity =>
+        {
+            entity.HasKey(e => e.ColorID);
+            entity.Property(e => e.ColorName)
+                .IsRequired()
+                .HasMaxLength(50);
+            entity.Property(e => e.ColorCode).HasMaxLength(20);
+            entity.HasIndex(e => e.ColorName).IsUnique();
+        });
+
+        // ========== CẤU HÌNH CHO SIZE ==========
+        modelBuilder.Entity<Size>(entity =>
+        {
+            entity.HasKey(e => e.SizeID);
+            entity.Property(e => e.SizeName)
+                .IsRequired()
+                .HasMaxLength(20);
+            entity.HasIndex(e => e.SizeName).IsUnique();
+        });
+
         // ========== CẤU HÌNH CHO PRODUCT VARIANT ==========
         modelBuilder.Entity<ProductVariant>(entity =>
         {
-           
-
-            entity.Property(e => e.SKU)
-                .IsRequired()
-                .HasMaxLength(100);
-
-            entity.Property(e => e.PurchasePrice)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(e => e.SellingPrice)
-                .HasColumnType("decimal(18,2)");
+            entity.HasKey(e => e.VariantID);
+            entity.Property(e => e.VariantID).UseIdentityColumn();
 
             entity.Property(e => e.QuantityInStock)
                 .IsRequired()
                 .HasDefaultValue(0);
 
-            entity.Property(e => e.Status)  
+            entity.Property(e => e.Status)
                 .HasMaxLength(20)
                 .HasDefaultValue("Đang bán");
 
+            // Relationships
             entity.HasOne(v => v.Product)
                   .WithMany(p => p.Variants)
                   .HasForeignKey(v => v.ProductID)
                   .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasOne(v => v.Color)
-                  .WithMany()
+                  .WithMany(c => c.ProductVariants)
                   .HasForeignKey(v => v.ColorID)
                   .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(v => v.Size)
-                  .WithMany()
+                  .WithMany(s => s.ProductVariants)
                   .HasForeignKey(v => v.SizeID)
                   .OnDelete(DeleteBehavior.Restrict);
         });
-
-        modelBuilder.Entity<ProductVariant>()
-            .HasOne(v => v.Color)
-            .WithMany(c => c.ProductVariants)
-            .HasForeignKey(v => v.ColorID)
-            .OnDelete(DeleteBehavior.Restrict);
-        
-        modelBuilder.Entity<ProductVariant>()
-            .HasOne(v => v.Size)
-            .WithMany(s => s.ProductVariants) 
-            .HasForeignKey(v => v.SizeID)
-            .OnDelete(DeleteBehavior.Restrict);
-
 
         // ========== CẤU HÌNH CHO USER ==========
         modelBuilder.Entity<User>(entity =>
@@ -189,6 +216,12 @@ public class ApplicationDbContext : DbContext
                 .IsRequired()
                 .HasMaxLength(200);
 
+            entity.Property(e => e.ColorName)
+                .HasMaxLength(50);
+
+            entity.Property(e => e.SizeName)
+                .HasMaxLength(20);
+
             entity.Property(e => e.Quantity)
                 .IsRequired();
 
@@ -207,6 +240,11 @@ public class ApplicationDbContext : DbContext
                   .WithMany(e => e.OrderDetails)
                   .HasForeignKey(e => e.OrderID)
                   .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Variant)
+                  .WithMany()
+                  .HasForeignKey(e => e.VariantID)
+                  .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.Product)
                   .WithMany()

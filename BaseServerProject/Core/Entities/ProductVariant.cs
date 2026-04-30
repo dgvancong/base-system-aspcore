@@ -14,16 +14,6 @@ public class ProductVariant
     public int ColorID { get; set; }
     public int SizeID { get; set; }
 
-    [Required]
-    [MaxLength(100)]
-    public string SKU { get; set; } = string.Empty;
-
-    [Column(TypeName = "decimal(18,2)")]
-    public decimal PurchasePrice { get; set; }
-
-    [Column(TypeName = "decimal(18,2)")]
-    public decimal SellingPrice { get; set; }
-
     public int QuantityInStock { get; set; } = 0;
 
     [MaxLength(20)]

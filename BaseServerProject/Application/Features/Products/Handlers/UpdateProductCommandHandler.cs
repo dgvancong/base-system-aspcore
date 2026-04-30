@@ -29,10 +29,11 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
         if (product == null)
             throw new Exception($"Không tìm thấy sản phẩm với ID {request.ProductID}");
 
-        // 2. Cập nhật thông tin sản phẩm
-        product.ProductName = request.ProductName;
+        // 2. Cập nhật thông tin sản phẩm (KHÔNG sửa tên và mã)
         product.SupplierName = request.SupplierName;
         product.CategoryName = request.CategoryName;
+        product.PurchasePrice = request.PurchasePrice;
+        product.SellingPrice = request.SellingPrice;
         product.Description = request.Description;
         product.BrandName = request.BrandName;
         product.Material = request.Material;
@@ -42,13 +43,33 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
 
         _context.Products.Update(product);
 
-        // 3. Xử lý các variants
-        var existingVariantIds = product.Variants.Select(v => v.VariantID).ToHashSet();
-        var requestVariantIds = request.Variants.Where(v => v.VariantID.HasValue).Select(v => v.VariantID.Value).ToHashSet();
+        // 3. Xử lý variants
+        var existingVariants = product.Variants.ToList();
+        var requestVariants = request.Variants.Where(v => v.VariantID.HasValue).Select(v => v.VariantID.Value).ToList();
 
-        // 3.1. Xóa các variant không còn trong request
-        var variantsToDelete = product.Variants.Where(v => !requestVariantIds.Contains(v.VariantID)).ToList();
-        _context.ProductVariants.RemoveRange(variantsToDelete);
+        // 3.1. Xử lý variants bị xóa (có trong DB nhưng không có trong request)
+        var variantsToDelete = existingVariants.Where(v => !requestVariants.Contains(v.VariantID)).ToList();
+
+        foreach (var variant in variantsToDelete)
+        {
+            // Kiểm tra variant có trong đơn hàng không
+            var hasOrders = await _context.SalesOrderDetails
+                .AnyAsync(d => d.VariantID == variant.VariantID, cancellationToken);
+
+            if (hasOrders)
+            {
+                // Nếu đã có đơn hàng, chỉ cập nhật trạng thái và số lượng = 0
+                variant.Status = "Ngừng bán";
+                variant.QuantityInStock = 0;
+                variant.UpdatedDate = DateTime.UtcNow;
+                _context.ProductVariants.Update(variant);
+            }
+            else
+            {
+                // Nếu chưa có đơn hàng, xóa bình thường
+                _context.ProductVariants.Remove(variant);
+            }
+        }
 
         // 3.2. Cập nhật hoặc thêm mới variants
         foreach (var variantDto in request.Variants)
@@ -64,15 +85,12 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
             if (variantDto.VariantID.HasValue)
             {
                 // Cập nhật variant hiện có
-                var existingVariant = product.Variants.FirstOrDefault(v => v.VariantID == variantDto.VariantID.Value);
+                var existingVariant = existingVariants.FirstOrDefault(v => v.VariantID == variantDto.VariantID.Value);
                 if (existingVariant != null)
                 {
                     existingVariant.ColorID = variantDto.ColorID;
                     existingVariant.SizeID = variantDto.SizeID;
-                    existingVariant.PurchasePrice = variantDto.PurchasePrice;
-                    existingVariant.SellingPrice = variantDto.SellingPrice;
                     existingVariant.QuantityInStock = variantDto.QuantityInStock;
-                    existingVariant.SKU = $"{product.ProductCode}-{color.ColorName}-{size.SizeName}".ToUpper();
                     existingVariant.Status = variantDto.QuantityInStock > 0 ? "Đang bán" : "Hết hàng";
                     existingVariant.UpdatedDate = DateTime.UtcNow;
 
@@ -87,9 +105,6 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
                     ProductID = product.ProductID,
                     ColorID = variantDto.ColorID,
                     SizeID = variantDto.SizeID,
-                    SKU = $"{product.ProductCode}-{color.ColorName}-{size.SizeName}".ToUpper(),
-                    PurchasePrice = variantDto.PurchasePrice,
-                    SellingPrice = variantDto.SellingPrice,
                     QuantityInStock = variantDto.QuantityInStock,
                     Status = variantDto.QuantityInStock > 0 ? "Đang bán" : "Hết hàng",
                     CreatedDate = DateTime.UtcNow,
@@ -121,6 +136,8 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
             ProductName = product.ProductName,
             SupplierName = product.SupplierName,
             CategoryName = product.CategoryName,
+            PurchasePrice = product.PurchasePrice,
+            SellingPrice = product.SellingPrice,
             Description = product.Description,
             BrandName = product.BrandName,
             Material = product.Material,
@@ -136,9 +153,6 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
                 ColorCode = v.Color?.ColorCode,
                 SizeID = v.SizeID,
                 SizeName = v.Size?.SizeName,
-                SKU = v.SKU,
-                PurchasePrice = v.PurchasePrice,
-                SellingPrice = v.SellingPrice,
                 QuantityInStock = v.QuantityInStock,
                 Status = v.Status
             }).ToList()
